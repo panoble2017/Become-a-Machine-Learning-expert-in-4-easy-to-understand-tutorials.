@@ -1,0 +1,69 @@
+# Designed by Peter A Noble PhD Email: panoble2017@gmail.com 
+# Copyright 2018
+# Import libraries
+import numpy as np   # Library supporting large, multi-dimensional arrays and matrices
+import pandas as pd  # Library for data manipulation and analysis 
+import torch         # Computing framework for machine learning algorithms
+
+# Read normalized data (min=0, max=1)
+xy = pd.read_csv('~/Desktop/train_example.csv', header=None, sep=',',dtype=np.float32)
+x = torch.from_numpy(xy.values[:, 0:-1]).float()   # assigning x in numpy memory to torch
+y = torch.from_numpy(xy.values[:, [-1]]).float()   # assigning y in numpy memory to torch
+
+#state the ANN architecture
+class Model(torch.nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()         # super is used to gain access to inherited methods (i.e., Model)
+        self.l1 = torch.nn.Linear(12848, 11)  # 12848 input neurons and 11 hidden neurons
+        self.l2 = torch.nn.Linear(11, 1)      # 11 hidden neurons and one output neuron
+
+        self.sigmoid=torch.nn.Sigmoid()       # Choose your activation function
+
+    def forward(self, x):
+        out1 = self.sigmoid(self.l1(x))       # Connect the input neurons to the hidden neurons
+        y_pred = self.sigmoid(self.l2(out1))  # Connect the hidden neurons to the output neuron
+        return y_pred                         # Return the prediction
+        
+model = Model()
+criterion = torch.nn.BCELoss(size_average=True)
+optimizer = torch.optim.Rprop(model.parameters(), lr=0.01, 
+                              etas=(0.5, 1.2), step_sizes=(1e-06, 50))
+
+# Training loop
+for epoch in range(10):                        # 10 specifies the number of epochs
+# Forward pass: Compute predicted y by passing x to the model
+    y_pred = model(x)
+
+    # Compute and print loss
+    loss = criterion(y_pred, y)
+
+    print(epoch, loss.item())
+
+    # Zero gradients, perform a backward pass, and update the weights.
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    
+#train_model
+y_val = model(torch.from_numpy(xy.values[:, 0:-1]).float())
+actual=xy.values[:, [-1]]
+
+y_val = y_val.detach().cpu().numpy()
+np.savetxt('train_model_y.out.txt', y_val)
+np.savetxt('train_actual_y.out.txt', actual)
+
+#validation_model
+xy2 = pd.read_csv('~/Desktop/test_example.csv', header=None, sep=',',dtype=np.float32)
+
+y_val = model(torch.from_numpy(xy2.values[:, 0:-1]).float())
+actual=xy2.values[:, [-1]]
+
+y_val = y_val.detach().cpu().numpy()
+np.savetxt('valid_model_y.out.txt', y_val)
+np.savetxt('valid_actual_y.out.txt', actual)
+
+params = list(model.parameters())
+np.savetxt('weights[0].txt', params[0].data) 
+np.savetxt('weights[1].txt', params[1].data)
+np.savetxt('weights[2].txt', params[2].data)
+np.savetxt('weights[3].txt', params[3].data)

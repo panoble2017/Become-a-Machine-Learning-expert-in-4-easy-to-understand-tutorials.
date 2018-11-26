@@ -1,0 +1,115 @@
+# Designed by Peter A Noble PhD Email: panoble2017@gmail.com 
+# Copyright 2018
+# Import libraries
+import numpy as np   
+import pandas as pd  
+import torch         
+
+import torch.nn as nn                              
+device = torch.device("cuda:0" if torch.cuda.is_available() else"cpu")  # modified
+import torch.multiprocessing as mp                                      # added
+mp.set_start_method('spawn')                                            # added
+
+from torch.autograd import Variable                
+from torch.utils.data import Dataset, DataLoader   
+
+torch.cuda.is_available()
+
+# Read normalized data (min=0, max=1)
+xy = pd.read_csv('~/Desktop/train_example.csv', header=None, sep=',',dtype=np.float32)
+
+# add these statements for data loader
+class UP_Dataset(Dataset):
+    # Initialize your data, download, etc.
+    def __init__(self):
+        
+        self.len = xy.shape[0]
+        
+        self.x = torch.from_numpy(xy.values[:, 0:-1]).float()
+        self.y = torch.from_numpy(xy.values[:, [-1]]).float()
+
+        self.x = self.x.to(device)
+        self.y = self.y.to(device)
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.len
+    
+dataset = UP_Dataset()
+train_loader = DataLoader(dataset=dataset,
+                          batch_size=100,
+                          shuffle=True,
+                          num_workers=0)                              # change num_workers=0
+                          
+#state the ANN architecture
+class Model(torch.nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()         
+        self.l1 = torch.nn.Linear(12848, 11)  
+        self.l2 = torch.nn.Linear(11, 1)      
+
+        self.sigmoid=torch.nn.Sigmoid()       
+
+    def forward(self, x):
+        out1 = self.sigmoid(self.l1(x))       
+        y_pred = self.sigmoid(self.l2(out1))  
+        return y_pred                         
+
+model = Model()
+model = nn.DataParallel(model)                                      # added
+model = model.to(device)                                    
+
+criterion = torch.nn.BCELoss(size_average=True)
+optimizer = torch.optim.Rprop(model.parameters(), 
+                              lr=0.01, etas=(0.5, 1.2), step_sizes=(1e-06, 50))
+ 
+#model.load_state_dict(torch.load('saved_model.pt'))       
+
+# Training loop
+r=100                                                               # added
+j=0                                                                 # added
+k=0                                                                 # added
+for epoch in range(r):                                              # modified
+    for i, dataset in enumerate(train_loader, 0):            
+        optimizer.zero_grad()                                
+        # get the inputs        
+        inputs, labels = dataset                             
+
+        # wrap them in Variable
+        inputs, labels = Variable(inputs).to(device), Variable(labels).to(device)    # modified
+    
+        y_pred = model(inputs)                               
+        loss=criterion(y_pred,labels)                        
+        #print(epoch, loss.item())
+        
+        loss.backward()
+        optimizer.step()
+        
+        if epoch == 10000:                                          # added
+            torch.save(model.state_dict(),'model_11_10K.pt')        # added
+        if epoch == 20000:                                          # added
+            torch.save(model.state_dict(),'model_11_20K.pt')        # added
+        if epoch == 30000:                                          # added
+            torch.save(model.state_dict(),'model_11_30K.pt')        # added
+        if epoch == 40000:                                          # added
+            torch.save(model.state_dict(),'model_11_40K.pt')        # added
+        if epoch == 50000:                                          # added
+            torch.save(model.state_dict(),'model_11_50K.pt')        # added
+  
+        #write out number of epochs completed and loss
+        j=j+1                                                       # added
+        if j==1:                                                    # added
+        #if j==1:                                                   # added
+            k=k+1                                                   # added        
+            file = open('count.txt','w')                            # added
+            file.write("Number of epochs = ")                       # added
+            file.write(str(epoch+1))                                # added
+            file.write(" of ")                                      # added
+            file.write(str(r))                                      # added
+            file.write("  Loss = ")                                 # added
+            file.write(str(loss.item()))                            # added
+            file.close()                                            # added
+            print(epoch+1, loss.item())                             # added
+            j=0                                                     # added

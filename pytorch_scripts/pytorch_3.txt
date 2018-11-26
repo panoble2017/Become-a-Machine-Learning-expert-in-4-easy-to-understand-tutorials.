@@ -1,0 +1,105 @@
+# Designed by Peter A Noble PhD Email: panoble2017@gmail.com 
+# Import libraries
+import numpy as np   
+import pandas as pd  
+import torch         
+
+import torch.nn as nn                              # added
+device = torch.device("cpu")                       # added
+from torch.autograd import Variable                # added
+from torch.utils.data import Dataset, DataLoader   # added
+
+# Read normalized data (min=0, max=1)
+xy = pd.read_csv('~/Desktop/train_example.csv', header=None, sep=',',dtype=np.float32)
+
+# add these statements for data loader
+class UP_Dataset(Dataset):
+    # Initialize your data, download, etc.
+    def __init__(self):
+        
+        self.len = xy.shape[0]
+        
+        self.x = torch.from_numpy(xy.values[:, 0:-1]).float()
+        self.y = torch.from_numpy(xy.values[:, [-1]]).float()
+
+        self.x = self.x.to(device)
+        self.y = self.y.to(device)
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.len
+    
+dataset = UP_Dataset()
+train_loader = DataLoader(dataset=dataset,
+                          batch_size=1000,
+                          shuffle=True,
+                          num_workers=10)
+                          
+                      #state the ANN architecture
+class Model(torch.nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()         
+        self.l1 = torch.nn.Linear(12848, 11)  
+        self.l2 = torch.nn.Linear(11, 1)      
+
+        self.sigmoid=torch.nn.Sigmoid()       
+
+    def forward(self, x):
+        out1 = self.sigmoid(self.l1(x))       
+        y_pred = self.sigmoid(self.l2(out1))  
+        return y_pred       
+        
+model = Model()
+model = model.to(device)                                    # added
+
+criterion = torch.nn.BCELoss(size_average=True)
+optimizer = torch.optim.Rprop(model.parameters(), lr=0.01, etas=(0.5, 1.2), step_sizes=(1e-06, 50))
+ 
+#model.load_state_dict(torch.load('saved_model.pt'))        # added
+
+# Training loop
+for epoch in range(3):
+    for i, dataset in enumerate(train_loader, 0):            # added
+        optimizer.zero_grad()                                
+        # get the inputs        
+        inputs, labels = dataset                             # added
+
+        # wrap them in Variable
+        inputs, labels = Variable(inputs), Variable(labels)  # added
+    
+        y_pred = model(inputs)                               # modified
+        loss=criterion(y_pred,labels)                        # mdodified
+        #print(epoch, loss.item())
+        
+    loss.backward()
+    optimizer.step()
+    print(epoch, loss.item())  
+    
+                    #train_model
+y_val = model(torch.from_numpy(xy.values[:, 0:-1]).float())
+actual=xy.values[:, [-1]]
+
+y_val = y_val.detach().cpu().numpy()
+np.savetxt('train_model_y.out.txt', y_val)
+np.savetxt('train_actual_y.out.txt', actual)
+
+torch.save(model.state_dict(),'saved_model.pt')  # added
+
+#validation_model
+xy2 = pd.read_csv('~/Desktop/test_example.csv', header=None, sep=',',dtype=np.float32)
+
+y_val = model(torch.from_numpy(xy2.values[:, 0:-1]).float())
+actual=xy2.values[:, [-1]]
+
+y_val = y_val.detach().cpu().numpy()
+np.savetxt('valid_model_y.out.txt', y_val)
+np.savetxt('valid_actual_y.out.txt', actual)
+
+params = list(model.parameters())
+np.savetxt('weights[0].txt', params[0].data) 
+np.savetxt('weights[1].txt', params[1].data)
+np.savetxt('weights[2].txt', params[2].data)
+np.savetxt('weights[3].txt', params[3].data)
+
