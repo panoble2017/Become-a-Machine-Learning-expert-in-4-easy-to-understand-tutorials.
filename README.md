@@ -1,1 +1,5 @@
 # Become-a-Machine-Learning-expert-in-4-easy-to-understand-tutorials.
+
+The four tutorials outline how to build a large Artificial Neural Network (ANN) model using basic Pytorch building blocks. The tutorials were designed to flow from one tutorial to another, starting from a simple model and ending with a complex one. I have marked up the scripts (1 to 4) to show which lines were modified/ removed and which ones were added to.
+The purpose is to help users not familiar with Pytorch build ANN models for themselves and assumes a basic understanding of ANN models. I have provided Powerpoint presentations at each step, along with the final Pytorch scripts and example data. In theory, the user should be able to run the scripts on their computers – however some assumptions were made (below).
+Although Pytorch can handle very large data sets, it is currently not possible to train an ANN model using a data set consisting of 12,849 columns and millions of rows (too much memory/space). For demonstration purposes, I have provided a fraction of the data.
